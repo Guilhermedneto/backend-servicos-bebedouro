@@ -1,10 +1,11 @@
 """Cadastra o conjunto padrão de categorias via API admin. Idempotente: pula as já existentes."""
 
+import os
 import sys
 
 import httpx
 
-BASE = "http://127.0.0.1:8000/api"
+BASE = os.environ.get("API_BASE", "http://127.0.0.1:8000/api")
 
 CATEGORIES = [
     "Advogado",

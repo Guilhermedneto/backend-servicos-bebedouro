@@ -4,12 +4,13 @@ Imprime o id do prestador criado (para testes de SSR/meta tags).
 """
 
 import base64
+import os
 import sys
 import uuid
 
 import httpx
 
-BASE = "http://127.0.0.1:8000/api"
+BASE = os.environ.get("API_BASE", "http://127.0.0.1:8000/api")
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 )
