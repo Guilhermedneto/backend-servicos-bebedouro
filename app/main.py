@@ -17,6 +17,7 @@ from app.presentation.routers import admin, auth, categories, providers, search
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("servicos-bebedouro")
+settings = get_settings()
 
 
 def seed_admin() -> None:
@@ -47,15 +48,33 @@ app = FastAPI(
     description="Plataforma de divulgação de prestadores de serviços e comerciantes de Bebedouro/SP.",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_settings().cors_origin_list,
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()"
+
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    if request.url.scheme == "https" or forwarded_proto.lower() == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    return response
 
 
 @app.exception_handler(AppError)
