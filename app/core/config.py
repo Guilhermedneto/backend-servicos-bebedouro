@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     azure_openai_api_version: str = "2024-10-21"
 
     admin_email: str = "admin@servicosbebedouro.com.br"
-    admin_password: str = "admin12345"
+    admin_password: str = ""  # obrigatório via env; sem valor o seed do admin é ignorado
     admin_name: str = "Administrador"
 
     reset_token_minutes: int = 60

@@ -21,6 +21,9 @@ logger = logging.getLogger("servicos-bebedouro")
 
 def seed_admin() -> None:
     settings = get_settings()
+    if not settings.admin_password:
+        logger.warning("ADMIN_PASSWORD não definido — seed do administrador ignorado.")
+        return
     users = CosmosUserRepository()
     if users.find_by_email(settings.admin_email):
         return

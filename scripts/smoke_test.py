@@ -6,14 +6,20 @@ O log é usado para extrair o link de recuperação de senha e conferir o e-mail
 """
 
 import base64
+import os
 import re
 import sys
 import uuid
 
 import httpx
 
-BASE = "http://127.0.0.1:8000/api"
+BASE = os.environ.get("API_BASE", "http://127.0.0.1:8000/api")
 LOG_PATH = sys.argv[1] if len(sys.argv) > 1 else None
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@servicosbebedouro.com.br")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+if not ADMIN_PASSWORD:
+    print("Defina ADMIN_PASSWORD no ambiente para executar este script.")
+    sys.exit(1)
 
 # 1x1 PNG válido
 PNG = base64.b64decode(
@@ -43,7 +49,7 @@ def expect(condition: bool, message: str):
 
 # ---------- Admin: login e categoria ----------
 step("Login do admin")
-r = client.post(f"{BASE}/auth/login", json={"email": "admin@servicosbebedouro.com.br", "password": "admin12345"})
+r = client.post(f"{BASE}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
 expect(r.status_code == 200, f"login admin: {r.status_code} {r.text}")
 admin_token = r.json()["accessToken"]
 

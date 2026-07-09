@@ -1,12 +1,18 @@
 """Verifica o lote de 12 itens (scroll infinito): cria 13 prestadores aprovados e pagina."""
 
+import os
 import random
 import sys
 import uuid
 
 import httpx
 
-BASE = "http://127.0.0.1:8000/api"
+BASE = os.environ.get("API_BASE", "http://127.0.0.1:8000/api")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@servicosbebedouro.com.br")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+if not ADMIN_PASSWORD:
+    print("Defina ADMIN_PASSWORD no ambiente para executar este script.")
+    sys.exit(1)
 run_id = uuid.uuid4().hex[:8]
 client = httpx.Client(timeout=60.0)
 
@@ -26,7 +32,7 @@ def random_cpf() -> str:
     return "".join(map(str, digits))
 
 
-r = client.post(f"{BASE}/auth/login", json={"email": "admin@servicosbebedouro.com.br", "password": "admin12345"})
+r = client.post(f"{BASE}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
 admin = {"Authorization": f"Bearer {r.json()['accessToken']}"}
 
 r = client.post(f"{BASE}/admin/categories", json={"name": f"Pedreiro {run_id}"}, headers=admin)

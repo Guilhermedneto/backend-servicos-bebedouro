@@ -11,6 +11,11 @@ import uuid
 import httpx
 
 BASE = os.environ.get("API_BASE", "http://127.0.0.1:8000/api")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@servicosbebedouro.com.br")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+if not ADMIN_PASSWORD:
+    print("Defina ADMIN_PASSWORD no ambiente para executar este script.")
+    sys.exit(1)
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 )
@@ -18,7 +23,7 @@ PNG = base64.b64decode(
 client = httpx.Client(timeout=60.0)
 run_id = uuid.uuid4().hex[:6]
 
-r = client.post(f"{BASE}/auth/login", json={"email": "admin@servicosbebedouro.com.br", "password": "admin12345"})
+r = client.post(f"{BASE}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
 admin = {"Authorization": f"Bearer {r.json()['accessToken']}"}
 
 categories = {}
