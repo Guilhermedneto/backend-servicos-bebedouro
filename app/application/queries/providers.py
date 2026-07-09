@@ -22,6 +22,7 @@ def to_card(provider: dict) -> dict:
         "name": provider["name"],
         "categoryNames": [c["name"] for c in provider["categories"]],
         "bairro": provider["address"]["bairro"],
+        "whatsapp": provider["whatsapp"],
         "ratingAvg": provider["ratingAvg"],
         "ratingCount": provider["ratingCount"],
         "coverUrl": _cover_url(provider),
