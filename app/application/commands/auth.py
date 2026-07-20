@@ -10,6 +10,13 @@ from app.application.interfaces import (
 )
 from app.core.config import get_settings
 from app.application.commands.providers import resolve_categories
+from app.application.commands.subscriptions import (
+    create_checkout,
+    initial_subscription_status,
+    validate_plan_choice,
+)
+from app.domain.plans import PAID_PLANS, SubscriptionStatus
+from app.infrastructure.stripe_service import StripeService
 from app.core.errors import BadRequestError, ConflictError, ForbiddenError, UnauthorizedError
 from app.core.security import (
     create_access_token,
@@ -56,6 +63,8 @@ class RegisterProviderCommand:
     description: str
     email: str
     password: str
+    plan: str
+    billing_cycle: str | None
 
 
 class RegisterProviderHandler:
@@ -65,18 +74,24 @@ class RegisterProviderHandler:
         providers: ProviderRepository,
         categories: CategoryRepository,
         geocoder: Geocoder,
+        stripe: StripeService,
     ) -> None:
         self._users = users
         self._providers = providers
         self._categories = categories
         self._geocoder = geocoder
+        self._stripe = stripe
 
     def handle(self, cmd: RegisterProviderCommand) -> dict:
+        validate_plan_choice(cmd.plan, cmd.billing_cycle)
         document_digits, doc_type = validate_document(cmd.document)
         whatsapp = validate_whatsapp(cmd.whatsapp)
         categories = resolve_categories(self._categories, cmd.category_ids)
         if self._users.find_by_email(cmd.email):
             raise ConflictError("Já existe uma conta cadastrada com este e-mail.", code="EMAIL_IN_USE")
+
+        subscription_status = initial_subscription_status(cmd.plan)
+        billing_cycle = cmd.billing_cycle if cmd.plan in PAID_PLANS else None
 
         coordinates = self._geocoder.geocode(cmd.rua, cmd.numero, cmd.bairro)
         user_doc = new_user_doc(cmd.name, cmd.email, hash_password(cmd.password), Role.PROVIDER)
@@ -93,9 +108,22 @@ class RegisterProviderHandler:
             whatsapp=whatsapp,
             description=cmd.description,
             coordinates=coordinates,
+            plan=cmd.plan,
+            billing_cycle=billing_cycle,
+            subscription_status=subscription_status,
         )
         self._providers.create(provider_doc)
-        return {"id": provider_doc["id"], "userId": user_doc["id"], "status": provider_doc["status"]}
+        result = {
+            "id": provider_doc["id"],
+            "userId": user_doc["id"],
+            "status": provider_doc["status"],
+            "plan": cmd.plan,
+            "subscriptionStatus": subscription_status,
+        }
+        if subscription_status == SubscriptionStatus.PENDING_PAYMENT.value:
+            checkout = create_checkout(self._stripe, provider_doc, cmd.plan, billing_cycle, cmd.email)
+            result["checkoutUrl"] = checkout["url"]
+        return result
 
 
 @dataclass

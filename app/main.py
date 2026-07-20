@@ -13,7 +13,7 @@ from app.domain.entities import Role, new_user_doc
 from app.infrastructure.blob_storage import init_blob_storage
 from app.infrastructure.cosmos_db import init_cosmos
 from app.infrastructure.repositories import CosmosUserRepository
-from app.presentation.routers import admin, auth, categories, providers, search
+from app.presentation.routers import admin, auth, categories, plans, providers, search, stripe
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("servicos-bebedouro")
@@ -110,3 +110,5 @@ app.include_router(providers.router)
 app.include_router(categories.router)
 app.include_router(admin.router)
 app.include_router(search.router)
+app.include_router(plans.router)
+app.include_router(stripe.router)

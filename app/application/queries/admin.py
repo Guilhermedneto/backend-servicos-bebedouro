@@ -74,8 +74,12 @@ class ListProvidersAdminHandler:
                 "bairro": p["address"]["bairro"],
                 "whatsapp": p["whatsapp"],
                 "status": p["status"],
+                "plan": p.get("plan", "essential"),
+                "billingCycle": p.get("billingCycle"),
+                "subscriptionStatus": p.get("subscriptionStatus", "active"),
                 "ratingAvg": p["ratingAvg"],
                 "ratingCount": p["ratingCount"],
+                "whatsappClicks": p.get("whatsappClicks", 0),
                 "createdAt": p["createdAt"],
             }
             for p in providers

@@ -1,4 +1,9 @@
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field
+
+PlanLiteral = Literal["free", "essential", "premium"]
+BillingCycleLiteral = Literal["monthly", "annual"]
 
 
 class RegisterUserRequest(BaseModel):
@@ -18,6 +23,13 @@ class RegisterProviderRequest(BaseModel):
     description: str = Field(min_length=1, max_length=1000)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    plan: PlanLiteral = "free"
+    billingCycle: BillingCycleLiteral | None = None
+
+
+class ChangePlanRequest(BaseModel):
+    plan: PlanLiteral
+    billingCycle: BillingCycleLiteral | None = None
 
 
 class LoginRequest(BaseModel):

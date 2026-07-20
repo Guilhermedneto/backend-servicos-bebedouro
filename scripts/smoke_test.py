@@ -76,6 +76,8 @@ payload = {
     "description": "Instalações elétricas residenciais e comerciais.",
     "email": provider_email,
     "password": "senha12345",
+    "plan": "essential",
+    "billingCycle": "monthly",
 }
 r = client.post(f"{BASE}/auth/register-provider", json={**payload})
 expect(r.status_code == 422, f"cpf inválido: {r.status_code} {r.text}")

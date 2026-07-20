@@ -121,18 +121,43 @@ class CosmosProviderRepository:
             "reviews": "c.ratingCount DESC",
             "recent": "c.approvedAt DESC",
         }[sort]
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            items_future = pool.submit(
-                _query,
+        # Premium sempre primeiro; dentro de cada segmento vale a ordenação escolhida.
+        premium_where = f"{where} AND c.isPremium = true"
+        others_where = f"{where} AND (NOT IS_DEFINED(c.isPremium) OR c.isPremium = false)"
+
+        def fetch(clause: str, off: int, lim: int) -> list[dict]:
+            return _query(
                 self._container,
-                f"SELECT * FROM c WHERE {where} ORDER BY {order} OFFSET @offset LIMIT @limit",
-                parameters
-                + [{"name": "@offset", "value": offset}, {"name": "@limit", "value": limit}],
+                f"SELECT * FROM c WHERE {clause} ORDER BY {order} OFFSET @offset LIMIT @limit",
+                parameters + [{"name": "@offset", "value": off}, {"name": "@limit", "value": lim}],
             )
-            total_future = pool.submit(
-                _scalar, self._container, f"SELECT VALUE COUNT(1) FROM c WHERE {where}", parameters
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            premium_total_f = pool.submit(
+                _scalar, self._container, f"SELECT VALUE COUNT(1) FROM c WHERE {premium_where}", parameters
             )
-        return items_future.result(), total_future.result() or 0
+            others_total_f = pool.submit(
+                _scalar, self._container, f"SELECT VALUE COUNT(1) FROM c WHERE {others_where}", parameters
+            )
+        premium_total = premium_total_f.result() or 0
+        others_total = others_total_f.result() or 0
+
+        if offset < premium_total:
+            items = fetch(premium_where, offset, limit)
+            need = limit - len(items)
+            if need > 0:
+                items += fetch(others_where, 0, need)
+        else:
+            items = fetch(others_where, offset - premium_total, limit)
+        return items, premium_total + others_total
+
+    def list_featured(self, limit: int) -> list[dict]:
+        return _query(
+            self._container,
+            "SELECT * FROM c WHERE c.status = 'active' AND c.isPremium = true "
+            "ORDER BY c.ratingAvg DESC OFFSET 0 LIMIT @limit",
+            [{"name": "@limit", "value": limit}],
+        )
 
     def list_admin(self, status: str | None) -> list[dict]:
         if status:
@@ -163,6 +188,17 @@ class CosmosProviderRepository:
             for category_id in ids or []:
                 counts[category_id] = counts.get(category_id, 0) + 1
         return counts
+
+    def increment_whatsapp_clicks(self, provider_id: str) -> None:
+        # Patch atômico: cliques simultâneos não se sobrescrevem (incr cria o campo se ausente).
+        try:
+            self._container.patch_item(
+                item=provider_id,
+                partition_key=provider_id,
+                patch_operations=[{"op": "incr", "path": "/whatsappClicks", "value": 1}],
+            )
+        except exceptions.CosmosResourceNotFoundError:
+            pass
 
 
 class CosmosReviewRepository:

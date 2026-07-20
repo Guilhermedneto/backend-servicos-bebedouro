@@ -61,6 +61,12 @@ def get_ai_search_service() -> AiSearchService:
     return LangGraphAiSearchService(CosmosProviderRepository(), CosmosCategoryRepository())
 
 
+def get_stripe_service():
+    from app.infrastructure.stripe_service import StripeService
+
+    return StripeService()
+
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     users: UserRepository = Depends(get_user_repo),

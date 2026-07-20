@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
 from app.application.interfaces import DuplicateReviewError, ProviderRepository, ReviewRepository
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.domain.entities import ProviderStatus, new_review_doc, now_iso
+from app.domain.plans import shows_full_profile
 
 
 def recalc_provider_rating(
@@ -39,7 +40,12 @@ class CreateReviewHandler:
         self._reviews = reviews
 
     def handle(self, cmd: CreateReviewCommand) -> dict:
-        _get_active_provider(self._providers, cmd.provider_id)
+        provider = _get_active_provider(self._providers, cmd.provider_id)
+        if not shows_full_profile(provider):
+            raise ForbiddenError(
+                "Este prestador está no plano gratuito e não recebe avaliações.",
+                code="REVIEWS_NOT_ALLOWED",
+            )
         doc = new_review_doc(cmd.provider_id, cmd.user_id, cmd.user_name, cmd.rating, cmd.comment)
         try:
             created = self._reviews.create(doc)

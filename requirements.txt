@@ -14,3 +14,4 @@ httpx==0.28.1
 python-multipart==0.0.20
 langgraph>=1.0,<2
 langchain-openai>=1.0,<2
+stripe==11.4.0

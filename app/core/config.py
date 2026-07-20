@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     azure_openai_deployment: str = ""
     azure_openai_api_version: str = "2024-10-21"
 
+    # Stripe — cobrança dos planos pagos. Sem STRIPE_SECRET_KEY o checkout fica indisponível
+    # (em desenvolvimento, planos pagos são ativados na hora para permitir testes).
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_essential_monthly: str = ""
+    stripe_price_essential_annual: str = ""
+    stripe_price_premium_monthly: str = ""
+    stripe_price_premium_annual: str = ""
+
     admin_email: str = "admin@servicosbebedouro.com.br"
     admin_password: str = ""  # obrigatório via env; sem valor o seed do admin é ignorado
     admin_name: str = "Administrador"
@@ -61,6 +70,18 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment.lower() in {"prod", "production"}
+
+    @property
+    def stripe_enabled(self) -> bool:
+        return bool(self.stripe_secret_key)
+
+    def stripe_price_id(self, plan: str, billing_cycle: str) -> str:
+        return {
+            ("essential", "monthly"): self.stripe_price_essential_monthly,
+            ("essential", "annual"): self.stripe_price_essential_annual,
+            ("premium", "monthly"): self.stripe_price_premium_monthly,
+            ("premium", "annual"): self.stripe_price_premium_annual,
+        }.get((plan, billing_cycle), "")
 
 
 @lru_cache

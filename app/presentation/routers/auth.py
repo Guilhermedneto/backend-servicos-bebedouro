@@ -43,8 +43,9 @@ def register_provider(
     providers=Depends(deps.get_provider_repo),
     categories=Depends(deps.get_category_repo),
     geocoder=Depends(deps.get_geocoder),
+    stripe=Depends(deps.get_stripe_service),
 ):
-    return RegisterProviderHandler(users, providers, categories, geocoder).handle(
+    return RegisterProviderHandler(users, providers, categories, geocoder, stripe).handle(
         RegisterProviderCommand(
             name=body.name,
             document=body.document,
@@ -56,6 +57,8 @@ def register_provider(
             description=body.description,
             email=body.email,
             password=body.password,
+            plan=body.plan,
+            billing_cycle=body.billingCycle,
         )
     )
 

@@ -5,6 +5,8 @@ from app.application.commands.providers import (
     DeletePhotoHandler,
     SetCoverPhotoCommand,
     SetCoverPhotoHandler,
+    TrackWhatsappClickCommand,
+    TrackWhatsappClickHandler,
     UpdateProviderProfileCommand,
     UpdateProviderProfileHandler,
     UploadPhotoCommand,
@@ -18,11 +20,18 @@ from app.application.commands.reviews import (
     UpdateReviewCommand,
     UpdateReviewHandler,
 )
+from app.application.commands.subscriptions import (
+    ChangePlanCommand,
+    ChangePlanHandler,
+    StartCheckoutCommand,
+    StartCheckoutHandler,
+)
 from app.application.queries.providers import (
     GetMyProviderHandler,
     GetMyProviderQuery,
     GetPublicProviderHandler,
     GetPublicProviderQuery,
+    ListFeaturedHandler,
     ListProvidersHandler,
     ListProvidersQuery,
 )
@@ -34,7 +43,7 @@ from app.application.queries.reviews import (
 )
 from app.core.config import get_settings
 from app.presentation import deps
-from app.presentation.schemas import ReviewRequest, UpdateProviderRequest
+from app.presentation.schemas import ChangePlanRequest, ReviewRequest, UpdateProviderRequest
 
 router = APIRouter(prefix="/api/providers", tags=["providers"])
 
@@ -55,6 +64,40 @@ def list_providers(
             page=page,
             page_size=get_settings().page_size,
         )
+    )
+
+
+@router.get("/featured")
+def list_featured(providers=Depends(deps.get_provider_repo)):
+    return ListFeaturedHandler(providers).handle()
+
+
+@router.put("/me/plan")
+def change_my_plan(
+    body: ChangePlanRequest,
+    user=Depends(deps.require_provider),
+    providers=Depends(deps.get_provider_repo),
+    storage=Depends(deps.get_photo_storage),
+    stripe=Depends(deps.get_stripe_service),
+):
+    return ChangePlanHandler(providers, storage, stripe).handle(
+        ChangePlanCommand(
+            provider_id=user["providerId"],
+            email=user["email"],
+            plan=body.plan,
+            billing_cycle=body.billingCycle,
+        )
+    )
+
+
+@router.post("/me/checkout")
+def start_my_checkout(
+    user=Depends(deps.require_provider),
+    providers=Depends(deps.get_provider_repo),
+    stripe=Depends(deps.get_stripe_service),
+):
+    return StartCheckoutHandler(providers, stripe).handle(
+        StartCheckoutCommand(provider_id=user["providerId"], email=user["email"])
     )
 
 
@@ -131,6 +174,11 @@ def set_cover_photo(
 @router.get("/{provider_id}")
 def get_provider(provider_id: str, providers=Depends(deps.get_provider_repo)):
     return GetPublicProviderHandler(providers).handle(GetPublicProviderQuery(provider_id=provider_id))
+
+
+@router.post("/{provider_id}/whatsapp-click", status_code=204)
+def track_whatsapp_click(provider_id: str, providers=Depends(deps.get_provider_repo)):
+    TrackWhatsappClickHandler(providers).handle(TrackWhatsappClickCommand(provider_id=provider_id))
 
 
 @router.get("/{provider_id}/reviews")

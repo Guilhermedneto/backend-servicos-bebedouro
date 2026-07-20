@@ -5,6 +5,7 @@ from app.application.interfaces import CategoryRepository, Geocoder, PhotoStorag
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, ValidationFailedError
 from app.domain.entities import new_photo
+from app.domain.plans import effective_plan, photo_limit
 from app.domain.validators import normalize_text, validate_whatsapp
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
@@ -100,9 +101,15 @@ class UploadPhotoHandler:
     def handle(self, cmd: UploadPhotoCommand) -> dict:
         settings = get_settings()
         provider = _get_own_provider(self._providers, cmd.provider_id)
-        if len(provider["photos"]) >= settings.max_photos:
+        limit = photo_limit(effective_plan(provider))
+        if limit == 0:
             raise ValidationFailedError(
-                f"Limite de {settings.max_photos} fotos atingido. Exclua uma foto para enviar outra.",
+                "O plano gratuito não permite fotos. Faça upgrade para um plano pago.",
+                code="PHOTOS_NOT_ALLOWED",
+            )
+        if len(provider["photos"]) >= limit:
+            raise ValidationFailedError(
+                f"Limite de {limit} fotos atingido no seu plano. Exclua uma foto para enviar outra.",
                 code="PHOTO_LIMIT_REACHED",
             )
         if cmd.content_type not in ALLOWED_CONTENT_TYPES:
@@ -165,3 +172,17 @@ class SetCoverPhotoHandler:
         for photo in provider["photos"]:
             photo["isCover"] = photo["id"] == cmd.photo_id
         return self._providers.update(provider)
+
+
+@dataclass
+class TrackWhatsappClickCommand:
+    provider_id: str
+
+
+class TrackWhatsappClickHandler:
+    def __init__(self, providers: ProviderRepository) -> None:
+        self._providers = providers
+
+    def handle(self, cmd: TrackWhatsappClickCommand) -> None:
+        # Endpoint público de telemetria: prestador inexistente é ignorado em silêncio.
+        self._providers.increment_whatsapp_clicks(cmd.provider_id)

@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
+from app.domain.plans import Plan, SubscriptionStatus
 from app.domain.validators import normalize_text
 
 
@@ -52,6 +53,9 @@ def new_provider_doc(
     whatsapp: str,
     description: str,
     coordinates: dict | None,
+    plan: str,
+    billing_cycle: str | None,
+    subscription_status: str,
 ) -> dict:
     return {
         "id": new_id(),
@@ -72,6 +76,13 @@ def new_provider_doc(
         "coordinates": coordinates,
         "ratingAvg": 0.0,
         "ratingCount": 0,
+        "whatsappClicks": 0,
+        "plan": plan,
+        "billingCycle": billing_cycle,
+        "subscriptionStatus": subscription_status,
+        "isPremium": plan == Plan.PREMIUM.value and subscription_status == SubscriptionStatus.ACTIVE.value,
+        "stripeCustomerId": None,
+        "stripeSubscriptionId": None,
         "createdAt": now_iso(),
         "approvedAt": None,
     }
