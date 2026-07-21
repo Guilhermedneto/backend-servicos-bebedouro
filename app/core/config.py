@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     encryption_key: str = "L2beIhpBSTjqOxJFHwWO2u8DWicaSPYY0Kmk3XhE1lM="
 
-    sendgrid_api_key: str = ""
+    resend_api_key: str = ""
     email_from: str = "no-reply@servicosbebedouro.com.br"
     email_from_name: str = "Serviços Bebedouro"
 
