@@ -15,10 +15,12 @@ async def stripe_webhook(
     stripe_signature: str = Header(default="", alias="Stripe-Signature"),
     providers=Depends(deps.get_provider_repo),
     stripe=Depends(deps.get_stripe_service),
+    users=Depends(deps.get_user_repo),
+    email_service=Depends(deps.get_email_service),
 ):
     payload = await request.body()
     try:
-        ProcessWebhookHandler(providers, stripe).handle(payload, stripe_signature)
+        ProcessWebhookHandler(providers, stripe, users, email_service).handle(payload, stripe_signature)
     except Exception as error:
         logger.warning("Webhook do Stripe rejeitado: %s", error)
         return {"received": False}

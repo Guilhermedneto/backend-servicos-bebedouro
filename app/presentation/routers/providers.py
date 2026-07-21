@@ -97,9 +97,10 @@ def cancel_my_subscription(
     user=Depends(deps.require_provider),
     providers=Depends(deps.get_provider_repo),
     stripe=Depends(deps.get_stripe_service),
+    email_service=Depends(deps.get_email_service),
 ):
-    return CancelSubscriptionHandler(providers, stripe).handle(
-        CancelSubscriptionCommand(provider_id=user["providerId"])
+    return CancelSubscriptionHandler(providers, stripe, email_service).handle(
+        CancelSubscriptionCommand(provider_id=user["providerId"], email=user["email"])
     )
 
 

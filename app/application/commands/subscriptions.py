@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 
-from app.application.interfaces import PhotoStorage, ProviderRepository
+from app.application.interfaces import EmailService, PhotoStorage, ProviderRepository, UserRepository
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, ValidationFailedError
 from app.domain.plans import (
@@ -52,6 +52,39 @@ def initial_subscription_status(plan: str) -> str:
 
 def sync_premium_flag(provider: dict) -> None:
     provider["isPremium"] = is_premium(provider)
+
+
+PLAN_LABELS = {Plan.ESSENTIAL.value: "Essencial", Plan.PREMIUM.value: "Premium"}
+
+
+def _send_cancellation_scheduled_email(email_service: EmailService, provider: dict, to: str) -> None:
+    plan_label = PLAN_LABELS.get(provider.get("plan"), provider.get("plan"))
+    email_service.send(
+        to=to,
+        subject="Cancelamento agendado — Serviços Bebedouro",
+        html=(
+            f"<p>Olá, {provider['name']}.</p>"
+            f"<p>Recebemos seu pedido de cancelamento do plano <strong>{plan_label}</strong>.</p>"
+            f"<p>Seu perfil continua ativo e completo normalmente até o fim do período já pago. "
+            f"Depois disso ele passa a ser exibido como Gratuito — mas nenhuma foto ou avaliação é apagada, "
+            f"e você pode assinar novamente quando quiser para reativar o perfil completo.</p>"
+            f"<p>Se mudar de ideia antes do fim do período, é só assinar de novo pelo painel do prestador.</p>"
+        ),
+    )
+
+
+def _send_subscription_ended_email(email_service: EmailService, provider: dict, to: str) -> None:
+    email_service.send(
+        to=to,
+        subject="Assinatura encerrada — Serviços Bebedouro",
+        html=(
+            f"<p>Olá, {provider['name']}.</p>"
+            f"<p>Sua assinatura foi encerrada e seu perfil agora é exibido publicamente como "
+            f"<strong>Gratuito</strong> (apenas nome, endereço e localização no mapa).</p>"
+            f"<p>Suas fotos e avaliações continuam guardadas — assine novamente quando quiser para "
+            f"reativar o perfil completo, com fotos, WhatsApp e avaliações.</p>"
+        ),
+    )
 
 
 def _checkout_urls() -> tuple[str, str]:
@@ -162,6 +195,7 @@ class StartCheckoutHandler:
 @dataclass
 class CancelSubscriptionCommand:
     provider_id: str
+    email: str
 
 
 class CancelSubscriptionHandler:
@@ -171,9 +205,12 @@ class CancelSubscriptionHandler:
     momento da ativação (ver ProcessWebhookHandler), sem exigir ação do prestador.
     """
 
-    def __init__(self, providers: ProviderRepository, stripe: StripeService) -> None:
+    def __init__(
+        self, providers: ProviderRepository, stripe: StripeService, email_service: EmailService
+    ) -> None:
         self._providers = providers
         self._stripe = stripe
+        self._email = email_service
 
     def handle(self, cmd: CancelSubscriptionCommand) -> dict:
         provider = self._providers.get(cmd.provider_id)
@@ -199,13 +236,27 @@ class CancelSubscriptionHandler:
         self._stripe.schedule_cancellation(provider.get("stripeSubscriptionId") or "")
         provider["cancelAtPeriodEnd"] = True
         self._providers.update(provider)
+        _send_cancellation_scheduled_email(self._email, provider, cmd.email)
         return {"cancelAtPeriodEnd": True}
 
 
 class ProcessWebhookHandler:
-    def __init__(self, providers: ProviderRepository, stripe: StripeService) -> None:
+    def __init__(
+        self,
+        providers: ProviderRepository,
+        stripe: StripeService,
+        users: UserRepository,
+        email_service: EmailService,
+    ) -> None:
         self._providers = providers
         self._stripe = stripe
+        self._users = users
+        self._email = email_service
+
+    def _notify_subscription_ended(self, provider: dict) -> None:
+        user = self._users.get(provider["userId"])
+        if user:
+            _send_subscription_ended_email(self._email, provider, user["email"])
 
     def handle(self, payload: bytes, signature: str) -> None:
         event = self._stripe.construct_event(payload, signature)
@@ -238,6 +289,7 @@ class ProcessWebhookHandler:
             provider = self._providers.get(provider_id) if provider_id else None
             if not provider:
                 return
+            was_active = provider.get("subscriptionStatus") == SubscriptionStatus.ACTIVE.value
             active = etype == "customer.subscription.updated" and obj.get("status") == "active"
             provider["subscriptionStatus"] = (
                 SubscriptionStatus.ACTIVE.value if active else SubscriptionStatus.CANCELED.value
@@ -246,3 +298,5 @@ class ProcessWebhookHandler:
                 provider["cancelAtPeriodEnd"] = False
             sync_premium_flag(provider)
             self._providers.update(provider)
+            if was_active and not active:
+                self._notify_subscription_ended(provider)
