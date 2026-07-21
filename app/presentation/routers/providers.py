@@ -21,6 +21,8 @@ from app.application.commands.reviews import (
     UpdateReviewHandler,
 )
 from app.application.commands.subscriptions import (
+    CancelSubscriptionCommand,
+    CancelSubscriptionHandler,
     ChangePlanCommand,
     ChangePlanHandler,
     StartCheckoutCommand,
@@ -87,6 +89,17 @@ def change_my_plan(
             plan=body.plan,
             billing_cycle=body.billingCycle,
         )
+    )
+
+
+@router.post("/me/subscription/cancel")
+def cancel_my_subscription(
+    user=Depends(deps.require_provider),
+    providers=Depends(deps.get_provider_repo),
+    stripe=Depends(deps.get_stripe_service),
+):
+    return CancelSubscriptionHandler(providers, stripe).handle(
+        CancelSubscriptionCommand(provider_id=user["providerId"])
     )
 
 

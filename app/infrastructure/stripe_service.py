@@ -75,3 +75,12 @@ class StripeService:
             self._stripe.Subscription.cancel(subscription_id)
         except Exception as error:  # cancelamento é best-effort
             logger.warning("Falha ao cancelar assinatura %s: %s", subscription_id, error)
+
+    def schedule_cancellation(self, subscription_id: str) -> None:
+        """Agenda o cancelamento para o fim do período já pago (não renova, mas não corta acesso agora)."""
+        if not self._stripe or not subscription_id:
+            return
+        try:
+            self._stripe.Subscription.modify(subscription_id, cancel_at_period_end=True)
+        except Exception as error:  # agendamento é best-effort
+            logger.warning("Falha ao agendar cancelamento da assinatura %s: %s", subscription_id, error)

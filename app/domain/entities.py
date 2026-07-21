@@ -80,6 +80,7 @@ def new_provider_doc(
         "plan": plan,
         "billingCycle": billing_cycle,
         "subscriptionStatus": subscription_status,
+        "cancelAtPeriodEnd": False,
         "isPremium": plan == Plan.PREMIUM.value and subscription_status == SubscriptionStatus.ACTIVE.value,
         "stripeCustomerId": None,
         "stripeSubscriptionId": None,

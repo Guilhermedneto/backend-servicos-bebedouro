@@ -112,6 +112,7 @@ class ChangePlanHandler:
             provider["billingCycle"] = None
             provider["subscriptionStatus"] = SubscriptionStatus.ACTIVE.value
             provider["stripeSubscriptionId"] = None
+            provider["cancelAtPeriodEnd"] = False
             _trim_photos_to_limit(provider, self._storage, photo_limit(Plan.FREE.value))
             sync_premium_flag(provider)
             self._providers.update(provider)
@@ -121,6 +122,7 @@ class ChangePlanHandler:
         provider["plan"] = cmd.plan
         provider["billingCycle"] = cmd.billing_cycle
         provider["subscriptionStatus"] = status
+        provider["cancelAtPeriodEnd"] = False
         _trim_photos_to_limit(provider, self._storage, photo_limit(cmd.plan))
         sync_premium_flag(provider)
         self._providers.update(provider)
@@ -157,6 +159,49 @@ class StartCheckoutHandler:
         return {"checkoutUrl": checkout["url"]}
 
 
+@dataclass
+class CancelSubscriptionCommand:
+    provider_id: str
+
+
+class CancelSubscriptionHandler:
+    """Agenda o cancelamento de uma assinatura mensal para o fim do período já pago.
+
+    Anuais não passam por aqui: são agendadas para não renovar automaticamente já no
+    momento da ativação (ver ProcessWebhookHandler), sem exigir ação do prestador.
+    """
+
+    def __init__(self, providers: ProviderRepository, stripe: StripeService) -> None:
+        self._providers = providers
+        self._stripe = stripe
+
+    def handle(self, cmd: CancelSubscriptionCommand) -> dict:
+        provider = self._providers.get(cmd.provider_id)
+        if not provider:
+            raise NotFoundError("Prestador não encontrado.", code="PROVIDER_NOT_FOUND")
+        if (
+            provider.get("plan") not in PAID_PLANS
+            or provider.get("subscriptionStatus") != SubscriptionStatus.ACTIVE.value
+        ):
+            raise ValidationFailedError(
+                "Não há assinatura ativa para cancelar.", code="NO_ACTIVE_SUBSCRIPTION"
+            )
+        if provider.get("billingCycle") != BillingCycle.MONTHLY.value:
+            raise ValidationFailedError(
+                "Assinaturas anuais não podem ser canceladas antecipadamente: elas não são "
+                "renovadas automaticamente ao fim dos 12 meses.",
+                code="ANNUAL_CANNOT_CANCEL",
+            )
+        if provider.get("cancelAtPeriodEnd"):
+            raise ValidationFailedError(
+                "O cancelamento já está agendado.", code="CANCELLATION_ALREADY_SCHEDULED"
+            )
+        self._stripe.schedule_cancellation(provider.get("stripeSubscriptionId") or "")
+        provider["cancelAtPeriodEnd"] = True
+        self._providers.update(provider)
+        return {"cancelAtPeriodEnd": True}
+
+
 class ProcessWebhookHandler:
     def __init__(self, providers: ProviderRepository, stripe: StripeService) -> None:
         self._providers = providers
@@ -168,14 +213,22 @@ class ProcessWebhookHandler:
         obj = event["data"]["object"]
 
         if etype == "checkout.session.completed":
-            provider_id = (obj.get("metadata") or {}).get("providerId") or obj.get("client_reference_id")
+            metadata = obj.get("metadata") or {}
+            provider_id = metadata.get("providerId") or obj.get("client_reference_id")
             provider = self._providers.get(provider_id) if provider_id else None
             if not provider:
                 logger.warning("Webhook checkout sem prestador correspondente: %s", provider_id)
                 return
+            subscription_id = obj.get("subscription")
             provider["subscriptionStatus"] = SubscriptionStatus.ACTIVE.value
             provider["stripeCustomerId"] = obj.get("customer")
-            provider["stripeSubscriptionId"] = obj.get("subscription")
+            provider["stripeSubscriptionId"] = subscription_id
+            # Anual não renova sozinho: agenda o fim em 12 meses sem depender de ação do prestador.
+            if metadata.get("billingCycle") == BillingCycle.ANNUAL.value:
+                self._stripe.schedule_cancellation(subscription_id or "")
+                provider["cancelAtPeriodEnd"] = True
+            else:
+                provider["cancelAtPeriodEnd"] = False
             sync_premium_flag(provider)
             self._providers.update(provider)
             logger.info("Assinatura ativada para prestador %s", provider_id)
@@ -189,5 +242,7 @@ class ProcessWebhookHandler:
             provider["subscriptionStatus"] = (
                 SubscriptionStatus.ACTIVE.value if active else SubscriptionStatus.CANCELED.value
             )
+            if etype == "customer.subscription.deleted":
+                provider["cancelAtPeriodEnd"] = False
             sync_premium_flag(provider)
             self._providers.update(provider)

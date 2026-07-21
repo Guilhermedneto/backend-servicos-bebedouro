@@ -149,6 +149,7 @@ class GetMyProviderHandler:
             "isPremium": is_premium(provider),
             "billingCycle": provider.get("billingCycle"),
             "subscriptionStatus": provider.get("subscriptionStatus", "active"),
+            "cancelAtPeriodEnd": provider.get("cancelAtPeriodEnd", False),
             "photoLimit": photo_limit(effective_plan(provider)),
             "documentMasked": mask_document(
                 decrypt_value(provider["documentEncrypted"]), provider["documentType"]
