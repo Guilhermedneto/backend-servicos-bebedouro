@@ -54,35 +54,40 @@ def sync_premium_flag(provider: dict) -> None:
     provider["isPremium"] = is_premium(provider)
 
 
-PLAN_LABELS = {Plan.ESSENTIAL.value: "Essencial", Plan.PREMIUM.value: "Premium"}
-
-
 def _send_cancellation_scheduled_email(email_service: EmailService, provider: dict, to: str) -> None:
-    plan_label = PLAN_LABELS.get(provider.get("plan"), provider.get("plan"))
+    app_name = get_settings().email_from_name
     email_service.send(
         to=to,
         subject="Cancelamento agendado — Serviços Bebedouro",
         html=(
             f"<p>Olá, {provider['name']}.</p>"
-            f"<p>Recebemos seu pedido de cancelamento do plano <strong>{plan_label}</strong>.</p>"
-            f"<p>Seu perfil continua ativo e completo normalmente até o fim do período já pago. "
-            f"Depois disso ele passa a ser exibido como Gratuito — mas nenhuma foto ou avaliação é apagada, "
-            f"e você pode assinar novamente quando quiser para reativar o perfil completo.</p>"
-            f"<p>Se mudar de ideia antes do fim do período, é só assinar de novo pelo painel do prestador.</p>"
+            f"<p>Recebemos seu pedido de cancelamento e respeitamos totalmente sua decisão.</p>"
+            f"<p>A boa notícia é que seu perfil continua ativo e completo até o último dia do período "
+            f"que você já pagou — sem nenhuma interrupção. Depois disso, ele passa para o modo Gratuito, "
+            f"mas suas fotos e avaliações ficam guardadas, esperando o momento certo para voltar.</p>"
+            f"<p>Se mudar de ideia antes disso, é só reativar pelo painel — estará tudo lá, do jeito que "
+            f"você deixou.</p>"
+            f"<p>Obrigado por ter feito parte. Desejamos muito sucesso, e esperamos te ver de volta um dia.</p>"
+            f"<p>Com carinho,<br>Equipe {app_name}</p>"
         ),
     )
 
 
 def _send_subscription_ended_email(email_service: EmailService, provider: dict, to: str) -> None:
+    app_name = get_settings().email_from_name
     email_service.send(
         to=to,
         subject="Assinatura encerrada — Serviços Bebedouro",
         html=(
             f"<p>Olá, {provider['name']}.</p>"
-            f"<p>Sua assinatura foi encerrada e seu perfil agora é exibido publicamente como "
-            f"<strong>Gratuito</strong> (apenas nome, endereço e localização no mapa).</p>"
-            f"<p>Suas fotos e avaliações continuam guardadas — assine novamente quando quiser para "
-            f"reativar o perfil completo, com fotos, WhatsApp e avaliações.</p>"
+            f"<p>Passamos por aqui só para avisar que sua assinatura chegou ao fim — e aproveitar para "
+            f"agradecer de verdade por ter feito parte da nossa comunidade.</p>"
+            f"<p>Seu perfil continua ativo no modo Gratuito (com nome, endereço e localização no mapa), "
+            f"e não se preocupe: suas fotos e avaliações estão guardadas com segurança, esperando por "
+            f"você.</p>"
+            f"<p>Desejamos muito sucesso na sua jornada — seja ela qual for. E se um dia os caminhos se "
+            f"cruzarem novamente, estaremos aqui de braços abertos para te receber de volta.</p>"
+            f"<p>Com carinho,<br>Equipe {app_name}</p>"
         ),
     )
 
