@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 PlanLiteral = Literal["free", "essential", "premium"]
 BillingCycleLiteral = Literal["monthly", "annual"]
+BusinessTypeLiteral = Literal["commerce", "service"]
 
 
 class RegisterUserRequest(BaseModel):
@@ -15,6 +16,7 @@ class RegisterUserRequest(BaseModel):
 class RegisterProviderRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     document: str = Field(min_length=11, max_length=18)
+    businessType: BusinessTypeLiteral
     categoryIds: list[str] = Field(min_length=1, max_length=4)
     bairro: str = Field(min_length=1, max_length=100)
     rua: str = Field(min_length=1, max_length=150)
@@ -71,6 +73,7 @@ class AiSearchRequest(BaseModel):
 
 class CategoryCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
+    businessType: BusinessTypeLiteral
 
 
 class CategoryUpdateRequest(BaseModel):

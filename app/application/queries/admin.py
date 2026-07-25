@@ -70,6 +70,7 @@ class ListProvidersAdminHandler:
                 "id": p["id"],
                 "name": p["name"],
                 "email": emails.get(p["userId"], ""),
+                "businessType": p.get("businessType"),
                 "categoryName": ", ".join(c["name"] for c in p["categories"]),
                 "bairro": p["address"]["bairro"],
                 "whatsapp": p["whatsapp"],
@@ -91,10 +92,10 @@ class ListAllCategoriesHandler:
         self._categories = categories
         self._providers = providers
 
-    def handle(self) -> list[dict]:
+    def handle(self, business_type: str | None = None) -> list[dict]:
         usage = self._providers.category_usage_counts()
         result = []
-        for category in self._categories.list_all():
+        for category in self._categories.list_all(business_type):
             dto = to_category_dto(category)
             dto["providersCount"] = usage.get(category["id"], 0)
             result.append(dto)

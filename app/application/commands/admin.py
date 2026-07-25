@@ -152,6 +152,7 @@ class RemoveUserHandler:
 @dataclass
 class CreateCategoryCommand:
     name: str
+    business_type: str
 
 
 class CreateCategoryHandler:
@@ -162,7 +163,7 @@ class CreateCategoryHandler:
         existing = [c for c in self._categories.list_all() if c["nameSearch"] == normalize_text(cmd.name)]
         if existing:
             raise ConflictError("Já existe uma categoria com este nome.", code="CATEGORY_EXISTS")
-        return self._categories.create(new_category_doc(cmd.name))
+        return self._categories.create(new_category_doc(cmd.name, cmd.business_type))
 
 
 @dataclass

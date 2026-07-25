@@ -49,6 +49,7 @@ def register_provider(
         RegisterProviderCommand(
             name=body.name,
             document=body.document,
+            business_type=body.businessType,
             category_ids=body.categoryIds,
             bairro=body.bairro,
             rua=body.rua,

@@ -55,6 +55,7 @@ class RegisterUserHandler:
 class RegisterProviderCommand:
     name: str
     document: str
+    business_type: str
     category_ids: list[str]
     bairro: str
     rua: str
@@ -86,7 +87,7 @@ class RegisterProviderHandler:
         validate_plan_choice(cmd.plan, cmd.billing_cycle)
         document_digits, doc_type = validate_document(cmd.document)
         whatsapp = validate_whatsapp(cmd.whatsapp)
-        categories = resolve_categories(self._categories, cmd.category_ids)
+        categories = resolve_categories(self._categories, cmd.category_ids, cmd.business_type)
         if self._users.find_by_email(cmd.email):
             raise ConflictError("Já existe uma conta cadastrada com este e-mail.", code="EMAIL_IN_USE")
 
@@ -101,6 +102,7 @@ class RegisterProviderHandler:
             name=cmd.name,
             document_encrypted=encrypt_value(document_digits),
             document_type=doc_type,
+            business_type=cmd.business_type,
             categories=categories,
             bairro=cmd.bairro,
             rua=cmd.rua,

@@ -109,15 +109,24 @@ def remove_provider(
 
 @router.get("/categories")
 def list_categories(
-    categories=Depends(deps.get_category_repo), providers=Depends(deps.get_provider_repo)
+    businessType: str | None = Query(default=None),
+    categories=Depends(deps.get_category_repo),
+    providers=Depends(deps.get_provider_repo),
 ):
-    return ListAllCategoriesHandler(categories, providers).handle()
+    return ListAllCategoriesHandler(categories, providers).handle(businessType)
 
 
 @router.post("/categories", status_code=201)
 def create_category(body: CategoryCreateRequest, categories=Depends(deps.get_category_repo)):
-    created = CreateCategoryHandler(categories).handle(CreateCategoryCommand(name=body.name))
-    return {"id": created["id"], "name": created["name"], "active": created["active"]}
+    created = CreateCategoryHandler(categories).handle(
+        CreateCategoryCommand(name=body.name, business_type=body.businessType)
+    )
+    return {
+        "id": created["id"],
+        "name": created["name"],
+        "businessType": created["businessType"],
+        "active": created["active"],
+    }
 
 
 @router.put("/categories/{category_id}")

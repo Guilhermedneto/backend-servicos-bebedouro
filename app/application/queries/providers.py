@@ -131,6 +131,7 @@ class GetMyProviderHandler:
         profile = {
             "id": provider["id"],
             "name": provider["name"],
+            "businessType": provider.get("businessType"),
             "categoryIds": provider["categoryIds"],
             "categoryNames": [c["name"] for c in provider["categories"]],
             "address": provider["address"],

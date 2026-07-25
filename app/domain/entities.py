@@ -18,6 +18,11 @@ class ProviderStatus(str, Enum):
     DEACTIVATED = "deactivated"
 
 
+class BusinessType(str, Enum):
+    COMMERCE = "commerce"
+    SERVICE = "service"
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -46,6 +51,7 @@ def new_provider_doc(
     name: str,
     document_encrypted: str,
     document_type: str,
+    business_type: str,
     categories: list[dict],
     bairro: str,
     rua: str,
@@ -64,6 +70,7 @@ def new_provider_doc(
         "nameSearch": normalize_text(name),
         "documentEncrypted": document_encrypted,
         "documentType": document_type,
+        "businessType": business_type,
         "categories": categories,
         "categoryIds": [c["id"] for c in categories],
         "categorySearch": normalize_text(" ".join(c["name"] for c in categories)),
@@ -103,11 +110,12 @@ def new_review_doc(provider_id: str, user_id: str, user_name: str, rating: int, 
     }
 
 
-def new_category_doc(name: str) -> dict:
+def new_category_doc(name: str, business_type: str) -> dict:
     return {
         "id": new_id(),
         "name": name,
         "nameSearch": normalize_text(name),
+        "businessType": business_type,
         "active": True,
         "createdAt": now_iso(),
     }

@@ -298,10 +298,23 @@ class CosmosCategoryRepository:
         except exceptions.CosmosResourceNotFoundError:
             pass
 
-    def list_active(self) -> list[dict]:
+    def list_active(self, business_type: str | None = None) -> list[dict]:
+        if business_type:
+            return _query(
+                self._container,
+                "SELECT * FROM c WHERE c.active = true AND c.businessType = @type "
+                "ORDER BY c.nameSearch ASC",
+                [{"name": "@type", "value": business_type}],
+            )
         return _query(
             self._container, "SELECT * FROM c WHERE c.active = true ORDER BY c.nameSearch ASC"
         )
 
-    def list_all(self) -> list[dict]:
+    def list_all(self, business_type: str | None = None) -> list[dict]:
+        if business_type:
+            return _query(
+                self._container,
+                "SELECT * FROM c WHERE c.businessType = @type ORDER BY c.nameSearch ASC",
+                [{"name": "@type", "value": business_type}],
+            )
         return _query(self._container, "SELECT * FROM c ORDER BY c.nameSearch ASC")

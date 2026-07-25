@@ -13,8 +13,10 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": 
 MAX_CATEGORIES = 4
 
 
-def resolve_categories(categories_repo: CategoryRepository, category_ids: list[str]) -> list[dict]:
-    """Valida e resolve de 1 a 4 categorias ativas, preservando a ordem e removendo duplicatas."""
+def resolve_categories(
+    categories_repo: CategoryRepository, category_ids: list[str], business_type: str
+) -> list[dict]:
+    """Valida e resolve de 1 a 4 categorias ativas do mesmo tipo de negócio (comércio ou serviço)."""
     unique_ids = list(dict.fromkeys(category_ids))
     if not unique_ids or len(unique_ids) > MAX_CATEGORIES:
         raise ValidationFailedError(
@@ -25,9 +27,14 @@ def resolve_categories(categories_repo: CategoryRepository, category_ids: list[s
     resolved = []
     for category_id in unique_ids:
         category = categories_repo.get(category_id)
-        if not category or not category.get("active"):
+        if (
+            not category
+            or not category.get("active")
+            or category.get("businessType") != business_type
+        ):
             raise ValidationFailedError(
-                "Ramo de atuação inválido: selecione categorias existentes e ativas.",
+                "Ramo de atuação inválido: selecione categorias existentes, ativas e do tipo "
+                "de negócio escolhido.",
                 code="INVALID_CATEGORY",
                 details={"field": "categoryIds"},
             )
@@ -66,7 +73,8 @@ class UpdateProviderProfileHandler:
         provider = _get_own_provider(self._providers, cmd.provider_id)
         whatsapp = validate_whatsapp(cmd.whatsapp)
         if cmd.category_ids != provider.get("categoryIds", []):
-            categories = resolve_categories(self._categories, cmd.category_ids)
+            # O tipo de negócio é fixado no cadastro e não muda por aqui — só os ramos dentro dele.
+            categories = resolve_categories(self._categories, cmd.category_ids, provider["businessType"])
             provider["categories"] = categories
             provider["categoryIds"] = [c["id"] for c in categories]
             provider["categorySearch"] = normalize_text(" ".join(c["name"] for c in categories))
