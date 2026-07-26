@@ -189,6 +189,14 @@ class CosmosProviderRepository:
                 counts[category_id] = counts.get(category_id, 0) + 1
         return counts
 
+    def list_expired_trials(self, now_iso: str) -> list[dict]:
+        return _query(
+            self._container,
+            "SELECT * FROM c WHERE c.isTrial = true AND c.subscriptionStatus = 'active' "
+            "AND c.trialEndsAt <= @now",
+            [{"name": "@now", "value": now_iso}],
+        )
+
     def increment_whatsapp_clicks(self, provider_id: str) -> None:
         # Patch atômico: cliques simultâneos não se sobrescrevem (incr cria o campo se ausente).
         try:
@@ -318,3 +326,29 @@ class CosmosCategoryRepository:
                 [{"name": "@type", "value": business_type}],
             )
         return _query(self._container, "SELECT * FROM c ORDER BY c.nameSearch ASC")
+
+
+class CosmosTrialClaimRepository:
+    """Registro permanente de quem já usou o trial gratuito do Essencial — nunca é apagado,
+    mesmo que a conta do prestador seja removida depois, para impedir reincidência."""
+
+    @property
+    def _container(self):
+        return cosmos_db.get_container(cosmos_db.TRIAL_CLAIMS)
+
+    def find_match(self, document_hash: str, email_hash: str, name_hash: str) -> dict | None:
+        return _scalar(
+            self._container,
+            "SELECT TOP 1 * FROM c WHERE c.documentHash = @d OR c.emailHash = @e OR c.nameHash = @n",
+            [
+                {"name": "@d", "value": document_hash},
+                {"name": "@e", "value": email_hash},
+                {"name": "@n", "value": name_hash},
+            ],
+        )
+
+    def create(self, doc: dict) -> dict:
+        return self._container.create_item(doc)
+
+    def count(self) -> int:
+        return _scalar(self._container, "SELECT VALUE COUNT(1) FROM c") or 0

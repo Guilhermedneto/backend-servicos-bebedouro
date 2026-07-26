@@ -9,6 +9,7 @@ from app.application.interfaces import (
     PhotoStorage,
     ProviderRepository,
     ReviewRepository,
+    TrialClaimRepository,
     UserRepository,
 )
 from app.core.errors import ForbiddenError, UnauthorizedError
@@ -21,6 +22,7 @@ from app.infrastructure.repositories import (
     CosmosCategoryRepository,
     CosmosProviderRepository,
     CosmosReviewRepository,
+    CosmosTrialClaimRepository,
     CosmosUserRepository,
 )
 
@@ -41,6 +43,10 @@ def get_review_repo() -> ReviewRepository:
 
 def get_category_repo() -> CategoryRepository:
     return CosmosCategoryRepository()
+
+
+def get_trial_claim_repo() -> TrialClaimRepository:
+    return CosmosTrialClaimRepository()
 
 
 def get_photo_storage() -> PhotoStorage:

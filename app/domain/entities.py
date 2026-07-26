@@ -62,6 +62,8 @@ def new_provider_doc(
     plan: str,
     billing_cycle: str | None,
     subscription_status: str,
+    is_trial: bool = False,
+    trial_ends_at: str | None = None,
 ) -> dict:
     return {
         "id": new_id(),
@@ -87,6 +89,8 @@ def new_provider_doc(
         "plan": plan,
         "billingCycle": billing_cycle,
         "subscriptionStatus": subscription_status,
+        "isTrial": is_trial,
+        "trialEndsAt": trial_ends_at,
         "cancelAtPeriodEnd": False,
         "isPremium": plan == Plan.PREMIUM.value and subscription_status == SubscriptionStatus.ACTIVE.value,
         "stripeCustomerId": None,
@@ -123,3 +127,14 @@ def new_category_doc(name: str, business_type: str) -> dict:
 
 def new_photo(url: str, blob_name: str, is_cover: bool) -> dict:
     return {"id": new_id(), "url": url, "blobName": blob_name, "isCover": is_cover}
+
+
+def new_trial_claim_doc(document_hash: str, email_hash: str, name_hash: str, provider_id: str) -> dict:
+    return {
+        "id": new_id(),
+        "documentHash": document_hash,
+        "emailHash": email_hash,
+        "nameHash": name_hash,
+        "providerId": provider_id,
+        "claimedAt": now_iso(),
+    }

@@ -151,6 +151,8 @@ class GetMyProviderHandler:
             "billingCycle": provider.get("billingCycle"),
             "subscriptionStatus": provider.get("subscriptionStatus", "active"),
             "cancelAtPeriodEnd": provider.get("cancelAtPeriodEnd", False),
+            "isTrial": provider.get("isTrial", False),
+            "trialEndsAt": provider.get("trialEndsAt"),
             "photoLimit": photo_limit(effective_plan(provider)),
             "documentMasked": mask_document(
                 decrypt_value(provider["documentEncrypted"]), provider["documentType"]

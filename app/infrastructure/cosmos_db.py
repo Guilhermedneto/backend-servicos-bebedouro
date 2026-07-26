@@ -8,6 +8,7 @@ USERS = "users"
 PROVIDERS = "providers"
 REVIEWS = "reviews"
 CATEGORIES = "categories"
+TRIAL_CLAIMS = "trial_claims"
 
 _client: CosmosClient | None = None
 _containers: dict = {}
@@ -38,6 +39,9 @@ def init_cosmos(retries: int = 30, delay_seconds: float = 2.0) -> None:
             )
             _containers[CATEGORIES] = database.create_container_if_not_exists(
                 id=CATEGORIES, partition_key=PartitionKey(path="/id")
+            )
+            _containers[TRIAL_CLAIMS] = database.create_container_if_not_exists(
+                id=TRIAL_CLAIMS, partition_key=PartitionKey(path="/id")
             )
             return
         except (exceptions.CosmosHttpResponseError, Exception) as error:  # emulator may still be starting

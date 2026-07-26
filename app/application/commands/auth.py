@@ -6,6 +6,7 @@ from app.application.interfaces import (
     EmailService,
     Geocoder,
     ProviderRepository,
+    TrialClaimRepository,
     UserRepository,
 )
 from app.core.config import get_settings
@@ -15,7 +16,8 @@ from app.application.commands.subscriptions import (
     initial_subscription_status,
     validate_plan_choice,
 )
-from app.domain.plans import PAID_PLANS, SubscriptionStatus
+from app.domain.plans import PAID_PLANS, Plan, SubscriptionStatus
+from app.domain.trial import TRIAL_SLOTS, trial_end_date
 from app.infrastructure.stripe_service import StripeService
 from app.core.errors import BadRequestError, ConflictError, ForbiddenError, UnauthorizedError
 from app.core.security import (
@@ -24,12 +26,13 @@ from app.core.security import (
     decode_token,
     encrypt_value,
     generate_reset_token,
+    hash_identity,
     hash_password,
     hash_token,
     verify_password,
 )
-from app.domain.entities import Role, new_provider_doc, new_user_doc, now_iso
-from app.domain.validators import validate_document, validate_whatsapp
+from app.domain.entities import Role, new_provider_doc, new_trial_claim_doc, new_user_doc, now_iso
+from app.domain.validators import normalize_text, validate_document, validate_whatsapp
 
 
 @dataclass
@@ -76,12 +79,14 @@ class RegisterProviderHandler:
         categories: CategoryRepository,
         geocoder: Geocoder,
         stripe: StripeService,
+        trial_claims: TrialClaimRepository,
     ) -> None:
         self._users = users
         self._providers = providers
         self._categories = categories
         self._geocoder = geocoder
         self._stripe = stripe
+        self._trial_claims = trial_claims
 
     def handle(self, cmd: RegisterProviderCommand) -> dict:
         validate_plan_choice(cmd.plan, cmd.billing_cycle)
@@ -91,8 +96,29 @@ class RegisterProviderHandler:
         if self._users.find_by_email(cmd.email):
             raise ConflictError("Já existe uma conta cadastrada com este e-mail.", code="EMAIL_IN_USE")
 
-        subscription_status = initial_subscription_status(cmd.plan)
-        billing_cycle = cmd.billing_cycle if cmd.plan in PAID_PLANS else None
+        is_trial = False
+        trial_ends_at = None
+        document_hash = email_hash = name_hash = None
+
+        if cmd.plan == Plan.ESSENTIAL.value:
+            document_hash = hash_identity(document_digits)
+            email_hash = hash_identity(cmd.email.lower())
+            name_hash = hash_identity(normalize_text(cmd.name))
+            if self._trial_claims.find_match(document_hash, email_hash, name_hash):
+                raise ConflictError(
+                    "Seu período de avaliação se encerrou. Contrate um plano para manter os serviços.",
+                    code="TRIAL_ALREADY_USED",
+                )
+            if self._trial_claims.count() < TRIAL_SLOTS:
+                is_trial = True
+
+        if is_trial:
+            subscription_status = SubscriptionStatus.ACTIVE.value
+            billing_cycle = None
+            trial_ends_at = trial_end_date(datetime.now(timezone.utc)).isoformat()
+        else:
+            subscription_status = initial_subscription_status(cmd.plan)
+            billing_cycle = cmd.billing_cycle if cmd.plan in PAID_PLANS else None
 
         coordinates = self._geocoder.geocode(cmd.rua, cmd.numero, cmd.bairro)
         user_doc = new_user_doc(cmd.name, cmd.email, hash_password(cmd.password), Role.PROVIDER)
@@ -113,14 +139,24 @@ class RegisterProviderHandler:
             plan=cmd.plan,
             billing_cycle=billing_cycle,
             subscription_status=subscription_status,
+            is_trial=is_trial,
+            trial_ends_at=trial_ends_at,
         )
         self._providers.create(provider_doc)
+
+        if is_trial:
+            self._trial_claims.create(
+                new_trial_claim_doc(document_hash, email_hash, name_hash, provider_doc["id"])
+            )
+
         result = {
             "id": provider_doc["id"],
             "userId": user_doc["id"],
             "status": provider_doc["status"],
             "plan": cmd.plan,
             "subscriptionStatus": subscription_status,
+            "isTrial": is_trial,
+            "trialEndsAt": trial_ends_at,
         }
         if subscription_status == SubscriptionStatus.PENDING_PAYMENT.value:
             checkout = create_checkout(self._stripe, provider_doc, cmd.plan, billing_cycle, cmd.email)

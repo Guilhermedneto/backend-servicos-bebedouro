@@ -83,3 +83,9 @@ def generate_reset_token() -> tuple[str, str]:
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def hash_identity(value: str) -> str:
+    """Hash irreversível usado para detectar reincidência (CPF/CNPJ, e-mail, nome) sem
+    guardar o dado original em texto claro."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()

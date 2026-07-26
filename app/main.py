@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -12,8 +13,10 @@ from app.core.security import hash_password
 from app.domain.entities import Role, new_user_doc
 from app.infrastructure.blob_storage import init_blob_storage
 from app.infrastructure.cosmos_db import init_cosmos
-from app.infrastructure.repositories import CosmosUserRepository
+from app.infrastructure.repositories import CosmosProviderRepository, CosmosUserRepository
 from app.presentation.routers import admin, auth, categories, plans, providers, search, stripe
+
+TRIAL_EXPIRY_CHECK_SECONDS = 3600
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("servicos-bebedouro")
@@ -35,12 +38,30 @@ def seed_admin() -> None:
     logger.info("Conta de administrador criada: %s", settings.admin_email)
 
 
+async def _trial_expiry_loop() -> None:
+    from app.application.commands.trial import ExpireTrialsHandler
+    from app.infrastructure.email import build_email_service
+
+    while True:
+        try:
+            count = ExpireTrialsHandler(
+                CosmosProviderRepository(), CosmosUserRepository(), build_email_service()
+            ).handle()
+            if count:
+                logger.info("Trials expirados processados: %s", count)
+        except Exception:
+            logger.exception("Falha ao processar expiração de trials")
+        await asyncio.sleep(TRIAL_EXPIRY_CHECK_SECONDS)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_cosmos()
     init_blob_storage()
     seed_admin()
+    task = asyncio.create_task(_trial_expiry_loop())
     yield
+    task.cancel()
 
 
 app = FastAPI(

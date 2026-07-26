@@ -81,6 +81,8 @@ class ListProvidersAdminHandler:
                 "ratingAvg": p["ratingAvg"],
                 "ratingCount": p["ratingCount"],
                 "whatsappClicks": p.get("whatsappClicks", 0),
+                "isTrial": p.get("isTrial", False),
+                "trialEndsAt": p.get("trialEndsAt"),
                 "createdAt": p["createdAt"],
             }
             for p in providers
